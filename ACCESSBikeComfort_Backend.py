@@ -25,6 +25,14 @@ os.environ['SHAPE_RESTORE_SHX'] = 'YES'
 
 # --- Function Definitions ---
 
+@app.route('/')
+def home():
+    return render_template("index.html")
+
+@app.route('/api/route')
+def routing_endpoint():
+    return jsonify({"status": "ok"})
+
 # Function to load and preprocess the shapefile
 def load_shapefile(filepath):
     print(f"Loading shapefile from {filepath}...")
