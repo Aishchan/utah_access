@@ -21,7 +21,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return render_template('index.html')  # Serve frontend
+    return render_template('ACCESSBikeComfort_Webtool.html')  # Serve frontend
 
 @app.route('/route', methods=['POST'])
 def route():
