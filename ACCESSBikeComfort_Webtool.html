@@ -179,7 +179,7 @@
             statusPanel.textContent = 'Loading bike infrastructure data...';
 
             // Check server health and data status
-            fetch('http://127.0.0.1:5001/health')
+            fetch('/health')
                 .then(response => response.json())
                 .then(health => {
                     if (health.shapefile_loaded) {
@@ -395,7 +395,7 @@
 
                 if (userLocation) {
                     try {
-                        const routeResponse = await fetch('http://127.0.0.1:5001/calculate_route', {
+                        const routeResponse = await fetch('/calculate_route', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
