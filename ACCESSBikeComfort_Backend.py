@@ -17,8 +17,11 @@ from shapely.ops import unary_union
 import networkx as nx
 from shapely.ops import nearest_points
 
+app = Flask(__name__)
+
 # Set environment variable to restore .shx file
 os.environ['SHAPE_RESTORE_SHX'] = 'YES'
+
 
 # --- Function Definitions ---
 
