@@ -644,10 +644,9 @@ def get_distance():
 
 # --- Main Execution --- 
 if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))  # fallback for local dev
     if gdf is None:
         print("Exiting: Shapefile could not be loaded.")
-        # Optionally, provide a message indicating the app cannot run without data
     else:
-        print("Starting Flask server...")
-        # Use port 5001 or change as needed
-        app.run(debug=True, port=5001)
+        print(f"Starting Flask server on port {port}...")
+        app.run(debug=True, host='0.0.0.0', port=port)
