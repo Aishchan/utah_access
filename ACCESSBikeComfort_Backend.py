@@ -22,7 +22,6 @@ app = Flask(__name__)
 # Set environment variable to restore .shx file
 os.environ['SHAPE_RESTORE_SHX'] = 'YES'
 
-
 # --- Function Definitions ---
 
 # Function to load and preprocess the shapefile
@@ -446,7 +445,7 @@ CORS(app) # Enable CORS for all routes
 print("\n=== Starting Application ===")
 print(f"Current working directory: {os.getcwd()}")
 print("Checking for shapefile...")
-shapefile_path = 'FinalTest.shp'
+shapefile_path = 'Logan_Comfort.shp'
 if os.path.exists(shapefile_path):
     print(f"Found shapefile at {shapefile_path}")
     gdf = load_shapefile(shapefile_path)
@@ -530,7 +529,7 @@ def calculate_route():
             print("No roads found in search area")
             return jsonify({'error': 'No roads found near start/end points.'}), 400
 
-        # Build graph from potential roads
+        # Build graph from potential roads using unique node IDs
         G, nodes, node_coords = build_graph(potential_roads)
 
         # Find the graph nodes closest to the actual start and end points
@@ -607,9 +606,9 @@ def calculate_route():
              return jsonify({'error': 'Could not construct final route geometry.'}), 500
 
         # Calculate average comfort score for the segments in the path
-        route_comfort_scores = potential_roads.loc[path_indices, 'WeightedCo']
+        route_comfort_scores = potential_roads.loc[path_indices, 'Norm_Metho']
         avg_comfort = route_comfort_scores.mean() if not route_comfort_scores.empty else 0
-        
+
         print(f"Route length: {final_route_length_miles:.2f} miles, Avg Comfort: {avg_comfort:.2f}")
 
         # Create GeoJSON

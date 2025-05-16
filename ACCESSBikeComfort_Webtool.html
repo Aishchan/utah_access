@@ -76,18 +76,18 @@
             font-weight: bold;
             margin-left: 5px;
         }
-        .comfort-highest {
-            background-color: darkgreen;
+        .comfort-most {
+            background-color: #2ecc40; /* Green */
         }
-        .comfort-high {
-            background-color: lightgreen;
-            color: black; /* Adjust text color for light background */
+        .comfort-comfortable {
+            background-color: #b6e388; /* Light Green */
+            color: black;
         }
-        .comfort-medium {
+        .comfort-less {
             background-color: orange;
         }
-        .comfort-low {
-            background-color: red;
+        .comfort-least {
+            background-color: #c0392b; /* Red */
         }
         #error-message {
             color: red;
@@ -136,10 +136,18 @@
 <body>
     <div id="viewDiv"></div>
     <div id="statusPanel">Loading...</div>
-    <div id="destinationDiv">
-        <input type="text" id="destinationInput" placeholder="Enter destination">
-        <button class="tool-button" id="findRoutes">Find Routes</button>
-        <div id="error-message"></div>
+    <div style="position: absolute; top: 20px; right: 20px; z-index: 100; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px;">
+        <label style="margin-right: 5px;">
+            <input type="radio" name="startLocationOption" id="useMyLocation" checked>
+            Use My Location
+        </label>
+        <label style="margin-right: 5px;">
+            <input type="radio" name="startLocationOption" id="enterAddress">
+            Enter Starting Address
+        </label>
+        <input type="text" id="startAddressInput" placeholder="Enter starting address" style="display:none; width: 200px;">
+        <input type="text" id="destinationInput" placeholder="Enter destination address" style="width: 200px;">
+        <button id="findRoutes">Find Routes</button>
     </div>
     <div id="routePanel">
         <h3>Route Options</h3>
@@ -179,7 +187,7 @@
             statusPanel.textContent = 'Loading bike infrastructure data...';
 
             // Check server health and data status
-            fetch('/health')
+            fetch('http://127.0.0.1:5001/health')
                 .then(response => response.json())
                 .then(health => {
                     if (health.shapefile_loaded) {
@@ -260,22 +268,28 @@
             let userLocation = null;
             let userMarker = null;
 
-            // Helper function to get comfort level text based on score (1-3 range)
+            // Helper function to get comfort level text based on score (1-4 range, 1=best)
             function getComfortLevelText(score) {
-                if (score >= 2.5) return 'Highest Comfort';
-                if (score >= 2.0) return 'High Comfort';
-                if (score >= 1.5) return 'Medium Comfort';
-                if (score >= 1.0) return 'Low Comfort';
-                return 'Unknown'; // Fallback
+                if (score >= 3.5) return 'Least Comfortable';
+                if (score >= 2.5) return 'Less Comfortable';
+                if (score >= 1.5) return 'Comfortable';
+                if (score >= 1.0) return 'Most Comfortable';
+                return 'Unknown';
             }
 
-            // Helper function to get comfort level CSS class based on score (1-3 range)
+            // Helper function to get comfort level CSS class based on score (1-4 range, 1=best)
             function getComfortLevelClass(score) {
-                if (score >= 2.5) return 'comfort-highest';
-                if (score >= 2.0) return 'comfort-high';
-                if (score >= 1.5) return 'comfort-medium';
-                if (score >= 1.0) return 'comfort-low';
-                return ''; // No class if unknown
+                if (score >= 3.5) return 'comfort-least';
+                if (score >= 2.5) return 'comfort-less';
+                if (score >= 1.5) return 'comfort-comfortable';
+                if (score >= 1.0) return 'comfort-most';
+                return '';
+            }
+
+            // Helper function to get comfort level color based on score (1-4 range, 1=best)
+            function getComfortLevelColor(score) {
+                // Always return light purple
+                return [180, 120, 255];
             }
 
             // Function to create route option HTML
@@ -317,11 +331,12 @@
                 routeGraphics = [];
 
                 // Add the selected route to the map
+                const routeColor = getComfortLevelColor(routeData.properties.comfort_score);
                 const routeGraphic = new Graphic({
                     geometry: routeData.route.geometry,
                     symbol: {
                         type: "simple-line",
-                        color: [0, 150, 255],
+                        color: routeColor,
                         width: 3
                     }
                 });
@@ -384,70 +399,89 @@
                 routeGraphics = [];
             }
 
+            // Handle toggling between location and address input
+            const useMyLocationRadio = document.getElementById('useMyLocation');
+            const enterAddressRadio = document.getElementById('enterAddress');
+            const startAddressInput = document.getElementById('startAddressInput');
+
+            useMyLocationRadio.addEventListener('change', function() {
+                if (useMyLocationRadio.checked) {
+                    startAddressInput.style.display = 'none';
+                }
+            });
+            enterAddressRadio.addEventListener('change', function() {
+                if (enterAddressRadio.checked) {
+                    startAddressInput.style.display = 'inline-block';
+                }
+            });
+
             // Update the Find Routes click event
             document.getElementById('findRoutes').addEventListener('click', async function() {
                 clearRoutes();
                 const destinationAddress = document.getElementById('destinationInput').value;
+                let startAddress = null;
+                if (useMyLocationRadio.checked) {
+                    if (!userLocation) {
+                        showError('Please allow location access to use your device location.');
+                        return;
+                    }
+                    startAddress = `${userLocation.latitude}, ${userLocation.longitude}`;
+                } else {
+                    startAddress = startAddressInput.value;
+                    if (!startAddress) {
+                        showError('Please enter a starting address.');
+                        return;
+                    }
+                }
                 if (!destinationAddress) {
                     showError('Please enter a destination address');
                     return;
                 }
-
-                if (userLocation) {
-                    try {
-                        const routeResponse = await fetch('/calculate_route', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                start_address: `${userLocation.latitude}, ${userLocation.longitude}`,
-                                end_address: destinationAddress
-                            })
-                        });
-                        
-                        const routeFeature = await routeResponse.json(); // Expecting a single GeoJSON Feature
-                        
-                        if (routeFeature.error) {
-                            showError(routeFeature.error);
-                            return;
-                        }
-
-                        // Clear existing route options
-                        const routeOptions = document.getElementById('routeOptions');
-                        routeOptions.innerHTML = '<h4>Route Information:</h4>';
-
-                        // Add route option to panel
-                        routeOptions.innerHTML += createRouteOption(routeFeature);
-
-                        // Draw route on map
-                        const routeGraphic = new Graphic({
-                            geometry: {
-                                type: "polyline",
-                                paths: routeFeature.geometry.coordinates, // Get coordinates from GeoJSON feature
-                            },
-                            symbol: {
-                                type: "simple-line",
-                                color: [128, 0, 128],  // Purple
-                                width: 4,
-                                style: "solid"
-                            }
-                        });
-                        view.graphics.add(routeGraphic);
-                        routeGraphics.push(routeGraphic);
-
-                        // Zoom to show the route
-                        view.goTo({
-                            target: routeGraphic,
-                            padding: 50
-                        });
-
-                    } catch (error) {
-                        console.error('Error:', error);
-                        showError('Error calculating route. Please try again.');
+                try {
+                    const routeResponse = await fetch('http://127.0.0.1:5001/calculate_route', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            start_address: startAddress,
+                            end_address: destinationAddress
+                        })
+                    });
+                    const routeFeature = await routeResponse.json(); // Expecting a single GeoJSON Feature
+                    if (routeFeature.error) {
+                        showError(routeFeature.error);
+                        return;
                     }
-                } else {
-                    showError('Please allow location access to find routes');
+                    // Clear existing route options
+                    const routeOptions = document.getElementById('routeOptions');
+                    routeOptions.innerHTML = '<h4>Route Information:</h4>';
+                    // Add route option to panel
+                    routeOptions.innerHTML += createRouteOption(routeFeature);
+                    // Draw route on map
+                    const routeColor = getComfortLevelColor(routeFeature.properties.comfort_score);
+                    const routeGraphic = new Graphic({
+                        geometry: {
+                            type: "polyline",
+                            paths: routeFeature.geometry.coordinates, // Get coordinates from GeoJSON feature
+                        },
+                        symbol: {
+                            type: "simple-line",
+                            color: routeColor,
+                            width: 4,
+                            style: "solid"
+                        }
+                    });
+                    view.graphics.add(routeGraphic);
+                    routeGraphics.push(routeGraphic);
+                    // Zoom to show the route
+                    view.goTo({
+                        target: routeGraphic,
+                        padding: 50
+                    });
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError('Error calculating route. Please try again.');
                 }
             });
 
